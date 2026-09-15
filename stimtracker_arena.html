@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>StimTracker Arena | Squad Edition</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+              800: '#065f46',
+              900: '#064e3b',
+            }
+          },
+          animation: {
+            'bounce-short': 'bounceShort 0.4s ease-in-out 1',
+            'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          },
+          keyframes: {
+            bounceShort: {
+              '0%, 100%': { transform: 'scale(1)' },
+              '50%': { transform: 'scale(1.08)' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom game scrollbar & glassy look */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .tap-pop {
+      transition: transform 0.08s ease, filter 0.08s ease;
+    }
+    .tap-pop:active {
+      transform: scale(0.95);
+      filter: brightness(1.2);
+    }
+    /* Confetti animation */
+    @keyframes fall {
+      0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(105vh) rotate(720deg); opacity: 0; }
+    }
+    .confetti-piece {
+      position: fixed;
+      top: 0;
+      width: 10px;
+      height: 14px;
+      pointer-events: none;
+      z-index: 9999;
+      animation: fall 2.5s linear forwards;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-emerald-500 selection:text-white pb-20">
+
+  <div id="toast" class="fixed bottom-6 right-6 z-50 transform transition-all duration-300 translate-y-24 opacity-0 pointer-events-none bg-slate-900/95 border border-emerald-500/50 text-emerald-300 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 backdrop-blur-md text-sm font-medium">
+    <span id="toastIcon">✨</span>
+    <span id="toastMsg">Notification message</span>
+  </div>
+
+  <header class="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 shadow-xl">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 via-teal-500 to-indigo-600 flex items-center justify-center text-xl shadow-lg shadow-emerald-500/20">
+          ⚡
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-indigo-300">
+            STIMTRACKER <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-widest ml-1 font-bold">Arena</span>
+          </h1>
+          <div class="flex items-center gap-2 text-xs text-slate-400">
+            <span class="inline-flex items-center gap-1.5">
+              <span id="syncDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse-fast"></span>
+              <span id="syncText" class="font-semibold text-emerald-400">Live Sync Connected</span>
+            </span>
+            <span>•</span>
+            <span class="font-mono text-slate-400" id="roomDisplay">room: main</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 flex-wrap">
+        <!-- Sound toggle -->
+        <button id="soundToggleBtn" onclick="toggleAudio()" class="px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-xs font-semibold text-slate-300 flex items-center gap-1.5 border border-slate-700 transition">
+          <span id="soundIcon">🔊</span>
+          <span id="soundText" class="hidden sm:inline">Audio On</span>
+        </button>
+
+        <!-- Room changer -->
+        <button onclick="openRoomModal()" class="px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-xs font-semibold text-slate-300 flex items-center gap-1.5 border border-slate-700 transition">
+          <span>🔑</span>
+          <span class="hidden sm:inline">Change Room</span>
+        </button>
+
+        <!-- Share button -->
+        <button onclick="copySquadLink()" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-lg shadow-emerald-500/25 transition tap-pop">
+          <span>📋</span>
+          <span>Copy Squad Link</span>
+        </button>
+
+        <!-- Export/Backup -->
+        <button onclick="openBackupModal()" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition" title="Data Backup & Sync Code">
+          ⚙️
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 pt-5 pb-12 space-y-6">
+
+    <section class="glass-panel p-4 sm:p-5 rounded-2xl shadow-xl">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xs uppercase font-extrabold tracking-wider text-emerald-400">Step 1</span>
+          <h2 class="text-sm sm:text-base font-bold text-white flex items-center gap-1.5">
+            Select Who Stimmed:
+          </h2>
+        </div>
+        <div id="activeTargetBadge" class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+          Target: <span id="activeTargetName" class="text-white underline">Owen</span>
+        </div>
+      </div>
+
+      <!-- Friend Selector Pills -->
+      <div id="friendSelectorContainer" class="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-9 gap-2">
+        <!-- Injected via JS -->
+      </div>
+    </section>
+
+    <section class="glass-panel p-4 sm:p-5 rounded-2xl shadow-xl">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xs uppercase font-extrabold tracking-wider text-emerald-400">Step 2</span>
+          <h2 class="text-sm sm:text-base font-bold text-white flex items-center gap-1.5">
+            Tap the Stim:
+          </h2>
+        </div>
+        <span class="text-xs text-slate-400">Instant +1 & Sound FX</span>
+      </div>
+
+      <!-- 6 Big Stim Buttons -->
+      <div id="stimButtonsContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <!-- Injected via JS -->
+      </div>
+    </section>
+
+    <section class="glass-panel p-5 sm:p-6 rounded-2xl shadow-xl">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base sm:text-lg font-black tracking-wide text-white flex items-center gap-2">
+          <span>🏆</span> Top Stim Champions
+        </h2>
+        <span class="text-xs text-slate-400">Squad Leaders</span>
+      </div>
+
+      <div id="podiumContainer" class="flex items-end justify-center gap-2 sm:gap-6 pt-10 pb-4 min-h-[220px]">
+        <!-- Injected via JS -->
+      </div>
+    </section>
+
+    <section class="glass-panel rounded-2xl shadow-xl overflow-hidden">
+      <div class="p-4 sm:p-5 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-3 bg-slate-900/40">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+            <span>📊</span> Full Squad Leaderboard
+          </h2>
+          <p class="text-xs text-slate-400">Tap buttons for instant score adjustments</p>
+        </div>
+        <div class="flex items-center gap-2 text-xs">
+          <span class="text-slate-400">Sort:</span>
+          <span class="px-2 py-1 bg-slate-800 rounded font-bold text-emerald-400">Highest Stims</span>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-900/80 text-xs uppercase tracking-wider text-slate-400 border-b border-slate-800">
+            <tr>
+              <th class="py-3 px-4 w-12 text-center">Rank</th>
+              <th class="py-3 px-4">Friend</th>
+              <th class="py-3 px-4 text-center">Total Stims</th>
+              <th class="py-3 px-4 text-center">Top Stim</th>
+              <th class="py-3 px-4 text-center w-36">Quick Controls</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardTbody" class="divide-y divide-slate-800/60 font-medium">
+            <!-- Injected via JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="glass-panel p-4 sm:p-5 rounded-2xl shadow-xl">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+          <span>⚡</span> Live Activity Stream
+        </h2>
+        <button onclick="clearActivityLog()" class="text-xs text-slate-400 hover:text-slate-200 transition">Clear Log</button>
+      </div>
+
+      <div id="activityFeed" class="space-y-2 max-h-52 overflow-y-auto pr-2 text-xs">
+        <!-- Injected via JS -->
+      </div>
+    </section>
+
+  </main>
+
+  <div id="roomModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="glass-panel border border-slate-700 w-full max-w-md p-6 rounded-2xl shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">🔑 Sync Squad Room</h3>
+        <button onclick="closeRoomModal()" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+      <p class="text-xs text-slate-300">
+        Enter a shared squad room name. Anyone using the exact same room name will sync live together.
+      </p>
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1">Room Code / Passphrase</label>
+        <input id="roomInput" type="text" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono text-sm focus:outline-none focus:border-emerald-500" placeholder="e.g. boys-stim-chamber">
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeRoomModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300">Cancel</button>
+        <button onclick="confirmChangeRoom()" class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-xs font-bold text-slate-950">Join & Sync</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="backupModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="glass-panel border border-slate-700 w-full max-w-lg p-6 rounded-2xl shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">⚙️ Backup & Import Scores</h3>
+        <button onclick="closeBackupModal()" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+      <p class="text-xs text-slate-300">
+        You can copy the entire squad state snapshot code or paste one to instantly sync across group chats.
+      </p>
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1">Squad Data Snapshot</label>
+        <textarea id="backupTextarea" rows="4" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-emerald-400 font-mono text-xs focus:outline-none focus:border-emerald-500" readonly></textarea>
+      </div>
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-2">
+        <button onclick="copySnapshotCode()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white">📋 Copy Code</button>
+        <div class="flex gap-2">
+          <button onclick="importSnapshotCode()" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white">📥 Import Pasted</button>
+          <button onclick="resetSquadScoresPrompt()" class="px-3.5 py-2 rounded-xl bg-red-900/60 hover:bg-red-800 text-xs font-bold text-red-200 border border-red-700/50">Reset All Scores</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Required Squad Members
+    const DEFAULT_FRIENDS = [
+      { id: 'owen', name: 'Owen', avatar: '🦁', color: 'from-amber-500 to-orange-600' },
+      { id: 'mason', name: 'Mason', avatar: '🐺', color: 'from-blue-500 to-indigo-600' },
+      { id: 'aryan', name: 'Aryan', avatar: '🦅', color: 'from-purple-500 to-pink-600' },
+      { id: 'haakon', name: 'Haakon', avatar: '⚔️', color: 'from-teal-500 to-emerald-600' },
+      { id: 'isa', name: 'Isa', avatar: '🦊', color: 'from-rose-500 to-red-600' },
+      { id: 'reja', name: 'Reja', avatar: '⚡', color: 'from-cyan-500 to-blue-600' },
+      { id: 'ben', name: 'Ben', avatar: '🐻', color: 'from-yellow-500 to-amber-600' },
+      { id: 'crawford', name: 'Crawford', avatar: '🎯', color: 'from-fuchsia-500 to-purple-600' },
+      { id: 'allie', name: 'Allie', avatar: '🌺', color: 'from-pink-500 to-rose-600' }
+    ];
+
+    // All 6 Requested Stims
+    const STIMS = [
+      {
+        id: 'q_kick',
+        label: 'Q-kick',
+        icon: '🥋',
+        color: 'from-emerald-500/20 to-teal-500/20 border-emerald-500/40 hover:border-emerald-400 text-emerald-300',
+        badge: 'bg-emerald-500/30 text-emerald-300',
+        sfx: 'kick'
+      },
+      {
+        id: 'elevator_bell',
+        label: 'elevator bell ring',
+        icon: '🔔',
+        color: 'from-amber-500/20 to-yellow-500/20 border-amber-500/40 hover:border-amber-400 text-amber-300',
+        badge: 'bg-amber-500/30 text-amber-300',
+        sfx: 'bell'
+      },
+      {
+        id: 'meth_quote',
+        label: 'ima get you all addicted to methamphetamines',
+        icon: '🧪',
+        color: 'from-purple-500/20 to-fuchsia-500/20 border-purple-500/40 hover:border-purple-400 text-purple-300',
+        badge: 'bg-purple-500/30 text-purple-300',
+        sfx: 'meth'
+      },
+      {
+        id: 'uppercut',
+        label: 'uppercut',
+        icon: '🥊',
+        color: 'from-red-500/20 to-rose-500/20 border-red-500/40 hover:border-red-400 text-rose-300',
+        badge: 'bg-red-500/30 text-rose-300',
+        sfx: 'punch'
+      },
+      {
+        id: 'nice_day',
+        label: 'I thought we were having a nice day',
+        icon: '🌤️',
+        color: 'from-sky-500/20 to-blue-500/20 border-sky-500/40 hover:border-sky-400 text-sky-300',
+        badge: 'bg-sky-500/30 text-sky-300',
+        sfx: 'nice_day'
+      },
+      {
+        id: 'nut_quote',
+        label: 'ima nut on you',
+        icon: '💥',
+        color: 'from-yellow-400/20 to-orange-500/20 border-yellow-400/50 hover:border-yellow-300 text-yellow-300',
+        badge: 'bg-yellow-500/30 text-yellow-300',
+        sfx: 'nut'
+      }
+    ];
+
+    // Core State
+    let state = {
+      roomId: 'squad-stim-main-chamber',
+      selectedFriendId: 'owen',
+      audioEnabled: true,
+      scores: {}, // friendId -> total
+      stimCounts: {}, // friendId -> { stimId -> count }
+      activities: []
+    };
+
+    let audioCtx = null;
+    let sseSource = null;
+    let syncInterval = null;
+    let lastBroadcastTime = 0;
+
+    function initState() {
+      // 1. Detect room from query or hash
+      const urlParams = new URLSearchParams(window.location.search);
+      const roomParam = urlParams.get('room');
+      if (roomParam && roomParam.trim()) {
+        state.roomId = roomParam.trim().toLowerCase();
+      }
+
+      // 2. Initialize default structures
+      DEFAULT_FRIENDS.forEach(f => {
+        state.scores[f.id] = 0;
+        state.stimCounts[f.id] = {};
+        STIMS.forEach(s => {
+          state.stimCounts[f.id][s.id] = 0;
+        });
+      });
+
+      // 3. Load localStorage for this room
+      try {
+        const local = localStorage.getItem(`stim_tracker_${state.roomId}`);
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (parsed.scores) Object.assign(state.scores, parsed.scores);
+          if (parsed.stimCounts) {
+            Object.keys(parsed.stimCounts).forEach(fid => {
+              state.stimCounts[fid] = Object.assign({}, state.stimCounts[fid], parsed.stimCounts[fid]);
+            });
+          }
+          if (Array.isArray(parsed.activities)) {
+            state.activities = parsed.activities.slice(0, 30);
+          }
+        }
+      } catch (e) {
+        console.warn('LocalStorage load warning:', e);
+      }
+
+      // 4. Check for state hash in URL if provided
+      try {
+        if (window.location.hash.startsWith('#data=')) {
+          const rawHash = window.location.hash.replace('#data=', '');
+          const decoded = JSON.parse(decodeURIComponent(escape(atob(rawHash))));
+          if (decoded.scores) Object.assign(state.scores, decoded.scores);
+          if (decoded.stimCounts) state.stimCounts = decoded.stimCounts;
+          if (decoded.activities) state.activities = decoded.activities;
+          saveLocal();
+        }
+      } catch (e) {
+        console.warn('Hash state import bypassed:', e);
+      }
+
+      // Render initial
+      updateRoomDisplay();
+      renderAll();
+
+      // Start Cloud sync
+      setupRealtimeSync();
+    }
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) audioCtx = new AudioContext();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function toggleAudio() {
+      state.audioEnabled = !state.audioEnabled;
+      document.getElementById('soundIcon').innerText = state.audioEnabled ? '🔊' : '🔇';
+      document.getElementById('soundText').innerText = state.audioEnabled ? 'Audio On' : 'Muted';
+      showToast(state.audioEnabled ? 'Sound FX Enabled' : 'Sound Muted', state.audioEnabled ? '🔊' : '🔇');
+    }
+
+    function playSound(type) {
+      if (!state.audioEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (type === 'bell') {
+          // Pure crystal elevator bell ding
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(1250, now);
+          osc.frequency.exponentialRampToValueAtTime(1250, now + 0.4);
+          gain.gain.setValueAtTime(0.4, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+          osc.start(now);
+          osc.stop(now + 0.9);
+
+          // Over-tone chime
+          const osc2 = ctx.createOscillator();
+          const gain2 = ctx.createGain();
+          osc2.type = 'sine';
+          osc2.frequency.setValueAtTime(2500, now);
+          osc2.connect(gain2);
+          gain2.connect(ctx.destination);
+          gain2.gain.setValueAtTime(0.18, now);
+          gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+          osc2.start(now);
+          osc2.stop(now + 0.6);
+
+        } else if (type === 'punch') {
+          // Uppercut heavy arcade punch
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(240, now);
+          osc.frequency.exponentialRampToValueAtTime(45, now + 0.22);
+          gain.gain.setValueAtTime(0.5, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+          osc.start(now);
+          osc.stop(now + 0.25);
+
+        } else if (type === 'kick') {
+          // Q-Kick whoosh whip
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(80, now);
+          osc.frequency.exponentialRampToValueAtTime(360, now + 0.08);
+          osc.frequency.exponentialRampToValueAtTime(70, now + 0.22);
+          gain.gain.setValueAtTime(0.4, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+          osc.start(now);
+          osc.stop(now + 0.25);
+
+        } else if (type === 'meth') {
+          // Quirky frantic slide
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(400, now);
+          osc.frequency.linearRampToValueAtTime(780, now + 0.1);
+          osc.frequency.linearRampToValueAtTime(320, now + 0.25);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+          osc.start(now);
+          osc.stop(now + 0.28);
+
+        } else if (type === 'nice_day') {
+          // "I thought we were having a nice day" descending slide
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(560, now);
+          osc.frequency.linearRampToValueAtTime(460, now + 0.15);
+          osc.frequency.linearRampToValueAtTime(380, now + 0.3);
+          osc.frequency.linearRampToValueAtTime(280, now + 0.5);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+          osc.start(now);
+          osc.stop(now + 0.55);
+
+        } else if (type === 'nut') {
+          // "ima nut on you" explosive rising laser pop
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(140, now);
+          osc.frequency.exponentialRampToValueAtTime(920, now + 0.15);
+          gain.gain.setValueAtTime(0.35, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+          osc.start(now);
+          osc.stop(now + 0.22);
+
+        } else {
+          // General click
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+          osc.start(now);
+          osc.stop(now + 0.12);
+        }
+      } catch (err) {
+        console.warn('Audio playback ignored:', err);
+      }
+    }
+
+    function selectFriend(friendId) {
+      state.selectedFriendId = friendId;
+      renderFriendSelector();
+      const friend = DEFAULT_FRIENDS.find(f => f.id === friendId);
+      document.getElementById('activeTargetName').innerText = friend ? friend.name : friendId;
+      playSound('pop');
+    }
+
+    function logStim(stimId) {
+      const friend = DEFAULT_FRIENDS.find(f => f.id === state.selectedFriendId);
+      const stim = STIMS.find(s => s.id === stimId);
+      if (!friend || !stim) return;
+
+      // 1. Increment local state
+      state.scores[friend.id] = (state.scores[friend.id] || 0) + 1;
+      if (!state.stimCounts[friend.id]) state.stimCounts[friend.id] = {};
+      state.stimCounts[friend.id][stim.id] = (state.stimCounts[friend.id][stim.id] || 0) + 1;
+
+      // 2. Add activity item
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const activity = {
+        id: Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+        friendId: friend.id,
+        friendName: friend.name,
+        friendAvatar: friend.avatar,
+        stimId: stim.id,
+        stimLabel: stim.label,
+        stimIcon: stim.icon,
+        time: timeStr,
+        timestamp: Date.now()
+      };
+      state.activities.unshift(activity);
+      if (state.activities.length > 40) state.activities.pop();
+
+      // 3. Audio and feedback
+      playSound(stim.sfx);
+      showToast(`${friend.name} +1: "${stim.label}"`, stim.icon);
+      triggerConfettiIfMilestone(state.scores[friend.id]);
+
+      // 4. Re-render UI
+      saveLocal();
+      renderAll();
+
+      // 5. Broadcast to network
+      broadcastEvent({
+        type: 'STIM_ADD',
+        friendId: friend.id,
+        stimId: stim.id,
+        activity: activity
+      });
+    }
+
+    function adjustScore(friendId, delta) {
+      const friend = DEFAULT_FRIENDS.find(f => f.id === friendId);
+      if (!friend) return;
+
+      const current = state.scores[friendId] || 0;
+      const next = Math.max(0, current + delta);
+      state.scores[friendId] = next;
+
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const activity = {
+        id: Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+        friendId: friend.id,
+        friendName: friend.name,
+        friendAvatar: friend.avatar,
+        stimId: 'manual',
+        stimLabel: delta > 0 ? '+1 Manual bump' : '-1 Adjustment',
+        stimIcon: delta > 0 ? '🔼' : '🔽',
+        time: timeStr,
+        timestamp: Date.now()
+      };
+      state.activities.unshift(activity);
+
+      playSound(delta > 0 ? 'bell' : 'punch');
+      showToast(`${friend.name} score: ${next}`, delta > 0 ? '🔼' : '🔽');
+
+      saveLocal();
+      renderAll();
+
+      broadcastEvent({
+        type: 'SCORE_SET',
+        friendId: friend.id,
+        newScore: next,
+        activity: activity
+      });
+    }
+
+    function renderFriendSelector() {
+      const container = document.getElementById('friendSelectorContainer');
+      container.innerHTML = DEFAULT_FRIENDS.map(f => {
+        const isSelected = f.id === state.selectedFriendId;
+        const total = state.scores[f.id] || 0;
+        return `
+          <button onclick="selectFriend('${f.id}')" 
+                  class="tap-pop flex flex-col items-center justify-center p-2.5 rounded-xl border transition relative overflow-hidden ${
+                    isSelected 
+                      ? 'bg-emerald-500/20 border-emerald-400 text-white shadow-lg shadow-emerald-500/20 ring-2 ring-emerald-500/50' 
+                      : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800/80 hover:border-slate-700'
+                  }">
+            <span class="text-xl mb-1">${f.avatar}</span>
+            <span class="text-xs font-bold truncate max-w-full">${f.name}</span>
+            <span class="text-[10px] mt-0.5 px-1.5 py-0.2 rounded-full font-mono ${
+              isSelected ? 'bg-emerald-500 text-slate-950 font-black' : 'bg-slate-800 text-slate-400'
+            }">
+              ${total}
+            </span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function renderStimButtons() {
+      const container = document.getElementById('stimButtonsContainer');
+      const targetFriend = DEFAULT_FRIENDS.find(f => f.id === state.selectedFriendId) || DEFAULT_FRIENDS[0];
+
+      container.innerHTML = STIMS.map(s => {
+        return `
+          <button onclick="logStim('${s.id}')" 
+                  class="tap-pop group relative p-4 rounded-xl border bg-gradient-to-r ${s.color} flex items-center justify-between text-left transition shadow-lg hover:shadow-xl">
+            <div class="flex items-center gap-3 min-w-0 pr-2">
+              <span class="text-3xl sm:text-4xl p-2 rounded-xl bg-slate-950/40 border border-white/10 group-hover:scale-110 transition shrink-0">
+                ${s.icon}
+              </span>
+              <div class="min-w-0">
+                <div class="text-xs uppercase font-extrabold tracking-wider text-slate-400 group-hover:text-slate-200">
+                  Add to ${targetFriend.name}
+                </div>
+                <div class="text-sm sm:text-base font-extrabold text-white truncate group-hover:underline">
+                  "${s.label}"
+                </div>
+              </div>
+            </div>
+            <div class="px-2.5 py-1 rounded-lg bg-white/10 text-white text-xs font-black shrink-0 border border-white/20">
+              +1
+            </div>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function renderPodium() {
+      const container = document.getElementById('podiumContainer');
+      const sorted = [...DEFAULT_FRIENDS].sort((a, b) => (state.scores[b.id] || 0) - (state.scores[a.id] || 0));
+
+      const first = sorted[0];
+      const second = sorted[1];
+      const third = sorted[2];
+
+      const makeCard = (friend, rank, heightClass, bgBadge, medal, borderGlow) => {
+        if (!friend) return '';
+        const score = state.scores[friend.id] || 0;
+        return `
+          <div class="flex-1 max-w-[130px] sm:max-w-[180px] flex flex-col items-center">
+            <!-- Floating Crown / Medal -->
+            <div class="text-2xl sm:text-3xl mb-1 filter drop-shadow animate-bounce-short">${medal}</div>
+            <div class="text-2xl sm:text-3xl mb-1">${friend.avatar}</div>
+            <div class="text-xs sm:text-sm font-black text-white text-center truncate w-full px-1">${friend.name}</div>
+            <div class="text-xs sm:text-sm font-mono font-extrabold text-emerald-400 mb-2">${score} stims</div>
+
+            <!-- Pedestal stand -->
+            <div class="w-full ${heightClass} ${bgBadge} rounded-t-xl border-t-2 ${borderGlow} flex flex-col items-center justify-center p-2 shadow-2xl relative">
+              <span class="text-lg sm:text-2xl font-black text-white/90">#${rank}</span>
+            </div>
+          </div>
+        `;
+      };
+
+      container.innerHTML = `
+        ${makeCard(second, 2, 'h-24 sm:h-28', 'bg-gradient-to-t from-slate-900 to-slate-800', '🥈', 'border-slate-400')}
+        ${makeCard(first, 1, 'h-32 sm:h-40', 'bg-gradient-to-t from-amber-950/80 to-amber-900/60', '👑', 'border-amber-400')}
+        ${makeCard(third, 3, 'h-20 sm:h-24', 'bg-gradient-to-t from-orange-950/80 to-amber-950/60', '🥉', 'border-amber-600')}
+      `;
+    }
+
+    function renderLeaderboardTable() {
+      const tbody = document.getElementById('leaderboardTbody');
+      const sorted = [...DEFAULT_FRIENDS].sort((a, b) => (state.scores[b.id] || 0) - (state.scores[a.id] || 0));
+
+      tbody.innerHTML = sorted.map((friend, idx) => {
+        const total = state.scores[friend.id] || 0;
+        const stimBreakdown = state.stimCounts[friend.id] || {};
+        
+        // Find favorite stim
+        let topStim = null;
+        let maxCount = 0;
+        Object.entries(stimBreakdown).forEach(([sid, cnt]) => {
+          if (cnt > maxCount) {
+            maxCount = cnt;
+            topStim = STIMS.find(s => s.id === sid);
+          }
+        });
+
+        const rankDisplay = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+
+        return `
+          <tr class="hover:bg-slate-900/50 transition">
+            <td class="py-3 px-4 text-center font-bold text-slate-400">${rankDisplay}</td>
+            <td class="py-3 px-4">
+              <div class="flex items-center gap-2.5">
+                <span class="text-xl">${friend.avatar}</span>
+                <span class="font-bold text-white text-sm sm:text-base">${friend.name}</span>
+              </div>
+            </td>
+            <td class="py-3 px-4 text-center">
+              <span class="inline-block px-3 py-1 rounded-full font-mono font-extrabold text-sm ${
+                idx === 0 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-slate-800 text-emerald-400'
+              }">
+                ${total}
+              </span>
+            </td>
+            <td class="py-3 px-4 text-center">
+              ${
+                topStim && maxCount > 0
+                  ? `<span class="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700 text-slate-200">
+                      <span>${topStim.icon}</span>
+                      <span class="truncate max-w-[120px] sm:max-w-[160px]">${topStim.label}</span>
+                      <span class="text-emerald-400 font-mono">(${maxCount})</span>
+                     </span>`
+                  : `<span class="text-xs text-slate-500">None yet</span>`
+              }
+            </td>
+            <td class="py-3 px-4 text-center">
+              <div class="flex items-center justify-center gap-1.5">
+                <button onclick="adjustScore('${friend.id}', -1)" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold border border-slate-700 flex items-center justify-center tap-pop">
+                  -1
+                </button>
+                <button onclick="adjustScore('${friend.id}', 1)" class="w-8 h-8 rounded-lg bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-slate-950 font-black border border-emerald-500/40 flex items-center justify-center tap-pop">
+                  +1
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderActivityFeed() {
+      const feed = document.getElementById('activityFeed');
+      if (!state.activities || state.activities.length === 0) {
+        feed.innerHTML = `
+          <div class="text-center py-6 text-slate-500 italic">
+            No stims logged yet today. Tap a friend and a stim button above to start the arena!
+          </div>
+        `;
+        return;
+      }
+
+      feed.innerHTML = state.activities.slice(0, 15).map(act => {
+        return `
+          <div class="flex items-center justify-between p-2 rounded-lg bg-slate-900/60 border border-slate-800/80">
+            <div class="flex items-center gap-2 min-w-0 pr-2">
+              <span class="text-base">${act.friendAvatar || '⚡'}</span>
+              <span class="font-bold text-white">${act.friendName}</span>
+              <span class="text-slate-400">did</span>
+              <span class="font-semibold text-emerald-300 truncate">"${act.stimLabel}"</span>
+              <span>${act.stimIcon || ''}</span>
+            </div>
+            <span class="text-[11px] font-mono text-slate-500 shrink-0">${act.time || 'now'}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function clearActivityLog() {
+      state.activities = [];
+      saveLocal();
+      renderActivityFeed();
+      showToast('Activity log cleared', '🧹');
+    }
+
+    function renderAll() {
+      renderFriendSelector();
+      renderStimButtons();
+      renderPodium();
+      renderLeaderboardTable();
+      renderActivityFeed();
+    }
+
+    function setupRealtimeSync() {
+      const syncDot = document.getElementById('syncDot');
+      const syncText = document.getElementById('syncText');
+
+      // Close existing if any
+      if (sseSource) {
+        try { sseSource.close(); } catch (e) {}
+      }
+
+      try {
+        // Connect to open CORS SSE channel for this room
+        const sseUrl = `https://ntfy.sh/${state.roomId}/sse`;
+        sseSource = new EventSource(sseUrl);
+
+        sseSource.onopen = () => {
+          syncDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse-fast';
+          syncText.className = 'font-semibold text-emerald-400';
+          syncText.innerText = 'Live Sync Active';
+        };
+
+        sseSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data && data.message) {
+              const payload = JSON.parse(data.message);
+              handleIncomingSync(payload);
+            }
+          } catch (err) {
+            // Non-JSON ping
+          }
+        };
+
+        sseSource.onerror = () => {
+          syncDot.className = 'w-2 h-2 rounded-full bg-amber-400';
+          syncText.className = 'font-semibold text-amber-400';
+          syncText.innerText = 'Sync Reconnecting...';
+        };
+      } catch (err) {
+        console.warn('SSE initiation notice:', err);
+      }
+
+      // Fallback: regular auto-poll to state hash or backup relay
+      if (syncInterval) clearInterval(syncInterval);
+      syncInterval = setInterval(() => {
+        updateUrlHash();
+      }, 15000);
+    }
+
+    async function broadcastEvent(eventData) {
+      lastBroadcastTime = Date.now();
+      updateUrlHash();
+
+      try {
+        // Broadcast over public zero-auth HTTP POST to the SSE room
+        await fetch(`https://ntfy.sh/${state.roomId}`, {
+          method: 'POST',
+          body: JSON.stringify(eventData),
+          headers: { 'Title': 'StimTracker Sync' }
+        });
+      } catch (e) {
+        console.warn('Network broadcast notice (operating locally):', e);
+      }
+    }
+
+    function handleIncomingSync(payload) {
+      if (!payload || !payload.type) return;
+
+      if (payload.type === 'STIM_ADD') {
+        const { friendId, stimId, activity } = payload;
+        state.scores[friendId] = (state.scores[friendId] || 0) + 1;
+        if (!state.stimCounts[friendId]) state.stimCounts[friendId] = {};
+        state.stimCounts[friendId][stimId] = (state.stimCounts[friendId][stimId] || 0) + 1;
+
+        if (activity) {
+          state.activities.unshift(activity);
+          if (state.activities.length > 40) state.activities.pop();
+        }
+
+        saveLocal();
+        renderAll();
+        showToast(`${activity ? activity.friendName : friendId} stimmed!`, '⚡');
+
+      } else if (payload.type === 'SCORE_SET') {
+        const { friendId, newScore, activity } = payload;
+        state.scores[friendId] = newScore;
+
+        if (activity) {
+          state.activities.unshift(activity);
+          if (state.activities.length > 40) state.activities.pop();
+        }
+
+        saveLocal();
+        renderAll();
+
+      } else if (payload.type === 'FULL_SYNC') {
+        if (payload.scores) Object.assign(state.scores, payload.scores);
+        if (payload.stimCounts) state.stimCounts = payload.stimCounts;
+        if (payload.activities) state.activities = payload.activities;
+        saveLocal();
+        renderAll();
+      }
+    }
+
+    function saveLocal() {
+      try {
+        localStorage.setItem(`stim_tracker_${state.roomId}`, JSON.stringify({
+          scores: state.scores,
+          stimCounts: state.stimCounts,
+          activities: state.activities
+        }));
+      } catch (e) {}
+    }
+
+    function updateUrlHash() {
+      try {
+        const minimalState = {
+          scores: state.scores,
+          stimCounts: state.stimCounts,
+          activities: state.activities.slice(0, 10)
+        };
+        const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(minimalState))));
+        window.history.replaceState(null, '', `#data=${encoded}`);
+      } catch (e) {}
+    }
+
+    function updateRoomDisplay() {
+      document.getElementById('roomDisplay').innerText = `room: ${state.roomId}`;
+      document.getElementById('roomInput').value = state.roomId;
+    }
+
+    function copySquadLink() {
+      // Create clean URL with current room and state hash
+      updateUrlHash();
+      const origin = window.location.origin + window.location.pathname;
+      const fullUrl = `${origin}?room=${encodeURIComponent(state.roomId)}${window.location.hash}`;
+
+      // Clipboard fallback
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(fullUrl).then(() => {
+          showToast('Squad link copied to clipboard!', '📋');
+        }).catch(() => fallbackCopy(fullUrl));
+      } else {
+        fallbackCopy(fullUrl);
+      }
+    }
+
+    function fallbackCopy(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast('Squad link copied to clipboard!', '📋');
+      } catch (err) {
+        prompt('Copy your Squad Link below:', text);
+      }
+      document.body.removeChild(ta);
+    }
+
+    function openRoomModal() {
+      document.getElementById('roomModal').classList.remove('hidden');
+    }
+
+    function closeRoomModal() {
+      document.getElementById('roomModal').classList.add('hidden');
+    }
+
+    function confirmChangeRoom() {
+      const val = document.getElementById('roomInput').value.trim().toLowerCase();
+      if (!val) return;
+      state.roomId = val;
+      updateRoomDisplay();
+      closeRoomModal();
+
+      // Reset state or load for that room
+      initState();
+      showToast(`Joined squad room: ${val}`, '🔑');
+
+      // Update URL
+      const origin = window.location.origin + window.location.pathname;
+      window.history.pushState(null, '', `${origin}?room=${encodeURIComponent(state.roomId)}`);
+    }
+
+    function openBackupModal() {
+      const snapshot = {
+        scores: state.scores,
+        stimCounts: state.stimCounts,
+        activities: state.activities
+      };
+      document.getElementById('backupTextarea').value = JSON.stringify(snapshot, null, 2);
+      document.getElementById('backupModal').classList.remove('hidden');
+    }
+
+    function closeBackupModal() {
+      document.getElementById('backupModal').classList.add('hidden');
+    }
+
+    function copySnapshotCode() {
+      const ta = document.getElementById('backupTextarea');
+      ta.select();
+      document.execCommand('copy');
+      showToast('Snapshot JSON copied!', '📋');
+    }
+
+    function importSnapshotCode() {
+      try {
+        const raw = document.getElementById('backupTextarea').value;
+        const parsed = JSON.parse(raw);
+        if (parsed.scores) Object.assign(state.scores, parsed.scores);
+        if (parsed.stimCounts) state.stimCounts = parsed.stimCounts;
+        if (Array.isArray(parsed.activities)) state.activities = parsed.activities;
+
+        saveLocal();
+        renderAll();
+        closeBackupModal();
+        showToast('Snapshot imported successfully!', '📥');
+
+        broadcastEvent({
+          type: 'FULL_SYNC',
+          scores: state.scores,
+          stimCounts: state.stimCounts,
+          activities: state.activities
+        });
+      } catch (err) {
+        showToast('Invalid JSON snapshot code', '⚠️');
+      }
+    }
+
+    function resetSquadScoresPrompt() {
+      const sure = window.confirm ? confirm("Are you sure you want to reset all stim scores to 0?") : true;
+      if (!sure) return;
+
+      DEFAULT_FRIENDS.forEach(f => {
+        state.scores[f.id] = 0;
+        state.stimCounts[f.id] = {};
+        STIMS.forEach(s => {
+          state.stimCounts[f.id][s.id] = 0;
+        });
+      });
+      state.activities = [];
+
+      saveLocal();
+      renderAll();
+      closeBackupModal();
+      showToast('All scores reset to 0', '🔄');
+
+      broadcastEvent({
+        type: 'FULL_SYNC',
+        scores: state.scores,
+        stimCounts: state.stimCounts,
+        activities: []
+      });
+    }
+
+    function showToast(message, icon = '✨') {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastIcon').innerText = icon;
+      document.getElementById('toastMsg').innerText = message;
+      toast.classList.remove('translate-y-24', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      clearTimeout(toast._timeout);
+      toast._timeout = setTimeout(() => {
+        toast.classList.add('translate-y-24', 'opacity-0');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 2400);
+    }
+
+    function triggerConfettiIfMilestone(score) {
+      if (score > 0 && score % 10 === 0) {
+        for (let i = 0; i < 35; i++) {
+          const confetti = document.createElement('div');
+          confetti.className = 'confetti-piece';
+          confetti.style.left = Math.random() * 100 + 'vw';
+          confetti.style.backgroundColor = ['#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6'][Math.floor(Math.random() * 5)];
+          confetti.style.animationDuration = (Math.random() * 1.5 + 1.5) + 's';
+          document.body.appendChild(confetti);
+          setTimeout(() => confetti.remove(), 3000);
+        }
+      }
+    }
+
+    // Initialize application on load
+    window.addEventListener('DOMContentLoaded', () => {
+      initState();
+    });
+  </script>
+</body>
+</html>
