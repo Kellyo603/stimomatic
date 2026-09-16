@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>StimTracker Arena - Squad Leaderboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Outfit', sans-serif;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .tap-pop:active {
+      transform: scale(0.95);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen pb-20 selection:bg-purple-500 selection:text-white">
+
+  <!-- TOP HEADER & SYNC BAR -->
+  <header class="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3">
+    <div class="max-w-4xl mx-auto flex items-center justify-between gap-2">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center text-xl shadow-lg shadow-purple-500/20">
+          ⚡
+        </div>
+        <div>
+          <h1 class="text-lg md:text-xl font-extrabold tracking-tight bg-gradient-to-r from-purple-300 via-pink-300 to-indigo-300 bg-clip-text text-transparent">
+            StimTracker Arena
+          </h1>
+          <div class="flex items-center gap-2">
+            <span id="syncStatusBeacon" class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            <span id="syncStatusText" class="text-xs font-mono text-emerald-400">Live Syncing</span>
+            <span class="text-slate-600 text-xs">•</span>
+            <span class="text-xs font-mono text-slate-400" id="roomTag">squad-main</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="muteBtn" onclick="toggleMute()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold border border-slate-700 transition" title="Toggle Sound FX">
+          🔊 Sound ON
+        </button>
+        <button onclick="copyShareLink()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 flex items-center gap-1.5 tap-pop transition">
+          <span>🔗</span>
+          <span class="hidden sm:inline">Share Link</span>
+        </button>
+        <button onclick="openSettingsModal()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition text-sm">
+          ⚙️
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 pt-6 space-y-8">
+
+    <!-- SELECT ACTIVE FRIEND -->
+    <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 shadow-xl">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+          <span>🎯</span> Step 1: Who stimmed?
+        </span>
+        <span id="activeFriendLabel" class="text-xs font-bold text-purple-400 font-mono bg-purple-500/10 px-2.5 py-1 rounded-full border border-purple-500/30">
+          Owen selected
+        </span>
+      </div>
+      <div id="friendSelectorList" class="flex flex-wrap gap-2">
+        <!-- Injected via JS -->
+      </div>
+    </section>
+
+    <!-- STIM CONTROLLER BUTTONS -->
+    <section class="space-y-3">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+          <span>💥</span> Step 2: Tap the Stim (+1)
+        </span>
+        <button onclick="openCustomStimModal()" class="text-xs font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 px-3 py-1 rounded-full transition flex items-center gap-1">
+          <span>➕</span> Add Custom Stim
+        </button>
+      </div>
+
+      <div id="stimButtonsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        <!-- Preset and custom stim buttons populated here -->
+      </div>
+    </section>
+
+    <!-- LIVE PODIUM -->
+    <section class="bg-gradient-to-b from-slate-900/80 to-slate-950 border border-slate-800/80 rounded-2xl p-5 shadow-2xl">
+      <div class="text-center mb-6">
+        <span class="text-xs font-bold uppercase tracking-widest text-amber-400">🏆 Current Stim Champions</span>
+        <h2 class="text-2xl font-black tracking-tight text-white mt-0.5">The Squad Podium</h2>
+      </div>
+
+      <div id="podiumContainer" class="flex items-end justify-center gap-3 sm:gap-6 pt-6 pb-2 min-h-[190px]">
+        <!-- Top 3 podium stands -->
+      </div>
+    </section>
+
+    <!-- FULL LEADERBOARD TABLE -->
+    <section class="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 md:p-5 shadow-xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <span>📊</span> Full Squad Leaderboard
+        </h3>
+        <span class="text-xs text-slate-500 font-mono" id="totalStimsLogged">0 total stims</span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead>
+            <tr class="text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-800 font-mono">
+              <th class="pb-3 px-2">Rank</th>
+              <th class="pb-3 px-3">Friend</th>
+              <th class="pb-3 px-3">Top Stim</th>
+              <th class="pb-3 px-3 text-right">Count</th>
+              <th class="pb-3 px-2 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardTableBody" class="divide-y divide-slate-800/60 font-sans">
+            <!-- Rows injected via JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- LIVE SQUAD FEED -->
+    <section class="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-4 shadow-xl">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+          <span>⚡</span> Live Activity Feed
+        </span>
+        <button onclick="clearActivityFeed()" class="text-[11px] text-slate-500 hover:text-slate-400 transition font-mono">
+          Clear
+        </button>
+      </div>
+      <div id="activityFeed" class="space-y-2 max-h-48 overflow-y-auto pr-1 text-xs font-mono">
+        <!-- Feed entries -->
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL: ADD CUSTOM STIM -->
+  <div id="customStimModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <span>✨</span> Create New Custom Stim
+        </h3>
+        <button onclick="closeCustomStimModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
+      </div>
+      <p class="text-xs text-slate-400">Add a new permanent stim button for everyone in the squad.</p>
+      <div>
+        <label class="block text-xs font-bold text-slate-300 mb-1">Stim Name</label>
+        <input type="text" id="newStimNameInput" placeholder="e.g., Screech..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500 font-sans" maxlength="35" />
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-300 mb-1">Emoji Icon</label>
+        <input type="text" id="newStimEmojiInput" placeholder="⚡" value="⚡" class="w-20 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-center text-lg text-white focus:outline-none focus:border-purple-500" maxlength="2" />
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button onclick="closeCustomStimModal()" class="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300">Cancel</button>
+        <button onclick="submitCustomStim()" class="flex-1 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-xs font-bold text-white shadow-lg shadow-purple-600/30">Add Stim</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SETTINGS -->
+  <div id="settingsModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <span>⚙️</span> Squad Settings & Backup
+        </h3>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-300 block mb-1">Live Room Name</label>
+          <div class="flex gap-2">
+            <input type="text" id="roomNameInput" class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 font-mono text-white text-xs" />
+            <button onclick="saveRoomName()" class="px-3 py-2 rounded-xl bg-purple-600 text-white font-bold">Save</button>
+          </div>
+        </div>
+
+        <div class="border-t border-slate-800 pt-3">
+          <label class="font-bold text-slate-300 block mb-1">Snapshot Backup Code</label>
+          <textarea id="exportCodeArea" readonly class="w-full h-20 bg-slate-950 border border-slate-800 rounded-xl p-2 font-mono text-[10px] text-purple-300 resize-none"></textarea>
+          <div class="flex gap-2 mt-2">
+            <button onclick="copySnapshotCode()" class="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 font-bold text-slate-200">Copy Backup Code</button>
+            <button onclick="importSnapshotPrompt()" class="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 font-bold text-indigo-300">Import Code</button>
+          </div>
+        </div>
+
+        <div class="border-t border-slate-800 pt-3">
+          <button onclick="resetAllScoresConfirm()" class="w-full py-2 rounded-xl bg-rose-950/40 border border-rose-800/40 hover:bg-rose-900/50 text-rose-300 font-bold">
+            ⚠️ Reset All Scores to 0
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================
+       AUDIO SYNTHESIS ENGINE
+       ========================================== */
+    let audioCtx = null;
+    let isMuted = false;
+
+    function getAudioCtx() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function toggleMute() {
+      isMuted = !isMuted;
+      document.getElementById('muteBtn').innerText = isMuted ? '🔇 Sound OFF' : '🔊 Sound ON';
+      document.getElementById('muteBtn').classList.toggle('text-rose-400', isMuted);
+    }
+
+    function playStimSound(type) {
+      if (isMuted) return;
+      try {
+        const ctx = getAudioCtx();
+        const now = ctx.currentTime;
+
+        if (type === 'bell') {
+          const osc1 = ctx.createOscillator();
+          const osc2 = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc1.type = 'sine';
+          osc2.type = 'sine';
+          osc1.frequency.setValueAtTime(1567.98, now);
+          osc2.frequency.setValueAtTime(3135.96, now);
+          gain.gain.setValueAtTime(0.35, now);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(ctx.destination);
+          osc1.start(now);
+          osc2.start(now);
+          osc1.stop(now + 1.2);
+          osc2.stop(now + 1.2);
+        } else if (type === 'kick' || type === 'uppercut') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(140, now);
+          osc.frequency.exponentialRampToValueAtTime(type === 'uppercut' ? 320 : 50, now + 0.2);
+          gain.gain.setValueAtTime(0.4, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.22);
+        } else if (type === 'brass') {
+          // Trumpet / horn hit for Big Dick Playa
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(220, now);
+          osc.frequency.setValueAtTime(440, now + 0.1);
+          gain.gain.setValueAtTime(0.35, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.4);
+        } else if (type === 'buzz') {
+          // Low buzzer for Beggar Out
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(95, now);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.35);
+        } else if (type === 'wobble') {
+          // Silly face wobble for Carlin Face
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(500, now);
+          osc.frequency.linearRampToValueAtTime(300, now + 0.1);
+          osc.frequency.linearRampToValueAtTime(600, now + 0.2);
+          gain.gain.setValueAtTime(0.35, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.35);
+        } else {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.exponentialRampToValueAtTime(220, now + 0.22);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.25);
+        }
+      } catch (e) {
+        console.warn("Audio Context blocked:", e);
+      }
+    }
+
+    /* ==========================================
+       DEFAULT DATA & STATE
+       ========================================== */
+    const DEFAULT_FRIENDS = [
+      { id: 'owen', name: 'Owen', avatar: '🦁', score: 0, breakdown: {} },
+      { id: 'mason', name: 'Mason', avatar: '🐺', score: 0, breakdown: {} },
+      { id: 'aryan', name: 'Aryan', avatar: '🦅', score: 0, breakdown: {} },
+      { id: 'haakon', name: 'Haakon', avatar: '⚔️', score: 0, breakdown: {} },
+      { id: 'isa', name: 'Isa', avatar: '🦊', score: 0, breakdown: {} },
+      { id: 'reja', name: 'Reja', avatar: '⚡', score: 0, breakdown: {} },
+      { id: 'ben', name: 'Ben', avatar: '🐻', score: 0, breakdown: {} },
+      { id: 'crawford', name: 'Crawford', avatar: '🐉', score: 0, breakdown: {} },
+      { id: 'allie', name: 'Allie', avatar: '🦄', score: 0, breakdown: {} }
+    ];
+
+    const PRESET_STIMS = [
+      { id: 'beggar', name: 'Get That Begger Out of Here', emoji: '🚪', sound: 'buzz', color: 'from-amber-700 to-yellow-900' },
+      { id: 'playa', name: 'Big Dick Playa', emoji: '🕶️', sound: 'brass', color: 'from-emerald-600 to-teal-800' },
+      { id: 'carlin', name: 'Carlin Face', emoji: '🤪', sound: 'wobble', color: 'from-pink-600 to-rose-800' },
+      { id: 'qkick', name: 'Q-kick', emoji: '🥋', sound: 'kick', color: 'from-orange-600 to-amber-700' },
+      { id: 'bell', name: 'elevator bell ring', emoji: '🔔', sound: 'bell', color: 'from-yellow-600 to-amber-800' },
+      { id: 'meth', name: 'ima get you all addicted to methamphetamines', emoji: '🧪', sound: 'default', color: 'from-green-700 to-emerald-900' },
+      { id: 'uppercut', name: 'uppercut', emoji: '🥊', sound: 'uppercut', color: 'from-rose-600 to-red-800' },
+      { id: 'niceday', name: 'I thought we were having a nice day', emoji: '🌤️', sound: 'default', color: 'from-sky-600 to-blue-800' },
+      { id: 'nut', name: 'ima nut on you', emoji: '💦', sound: 'default', color: 'from-fuchsia-600 to-purple-800' },
+      { id: 'fade', name: 'Fade', emoji: '🌫️', sound: 'default', color: 'from-slate-600 to-zinc-800' }
+    ];
+
+    let state = {
+      roomId: 'squad-stim-main-8877',
+      selectedFriendId: 'owen',
+      friends: JSON.parse(JSON.stringify(DEFAULT_FRIENDS)),
+      customStims: [],
+      feed: []
+    };
+
+    /* ==========================================
+       INITIALIZATION & LIVE SSE SYNC
+       ========================================== */
+    function init() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('room')) state.roomId = params.get('room');
+
+      const cached = localStorage.getItem(`stim_state_${state.roomId}`);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (parsed && Array.isArray(parsed.friends)) {
+            state.friends = parsed.friends;
+            state.customStims = parsed.customStims || [];
+            state.feed = parsed.feed || [];
+          }
+        } catch (e) {
+          console.error("Cache read error", e);
+        }
+      }
+
+      document.getElementById('roomTag').innerText = state.roomId;
+      document.getElementById('roomNameInput').value = state.roomId;
+
+      renderAll();
+      connectLiveEventBus();
+    }
+
+    let eventSource = null;
+    function connectLiveEventBus() {
+      if (eventSource) eventSource.close();
+
+      const channel = state.roomId.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+      const sseUrl = `https://ntfy.sh/${channel}/sse`;
+
+      try {
+        eventSource = new EventSource(sseUrl);
+
+        eventSource.onopen = () => {
+          document.getElementById('syncStatusBeacon').className = "inline-block w-2 h-2 rounded-full bg-emerald-400";
+          document.getElementById('syncStatusText').innerText = "Live Syncing";
+          document.getElementById('syncStatusText').className = "text-xs font-mono text-emerald-400";
+        };
+
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.event === 'message' && data.message) {
+              const packet = JSON.parse(data.message);
+              handleRemoteBroadcast(packet);
+            }
+          } catch (err) {}
+        };
+
+        eventSource.onerror = () => {
+          document.getElementById('syncStatusBeacon').className = "inline-block w-2 h-2 rounded-full bg-amber-400";
+          document.getElementById('syncStatusText').innerText = "Reconnecting...";
+          document.getElementById('syncStatusText').className = "text-xs font-mono text-amber-400";
+        };
+      } catch (err) {
+        console.warn("EventSource init failed:", err);
+      }
+    }
+
+    function broadcastAction(actionType, payload) {
+      saveToLocal();
+      const packet = {
+        action: actionType,
+        sender: state.selectedFriendId,
+        time: Date.now(),
+        payload: payload
+      };
+
+      const channel = state.roomId.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+      fetch(`https://ntfy.sh/${channel}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(packet)
+      }).catch(e => console.warn("Broadcast fallback:", e));
+    }
+
+    function handleRemoteBroadcast(packet) {
+      if (!packet || !packet.action) return;
+
+      if (packet.action === 'STIM_LOGGED') {
+        const { friendId, stimName, soundType } = packet.payload;
+        const friend = state.friends.find(f => f.id === friendId);
+        if (friend) {
+          friend.score = (friend.score || 0) + 1;
+          friend.breakdown = friend.breakdown || {};
+          friend.breakdown[stimName] = (friend.breakdown[stimName] || 0) + 1;
+          addFeedItem(`${friend.avatar} ${friend.name} logged "${stimName}"`);
+          playStimSound(soundType || 'default');
+          renderAll();
+        }
+      } else if (packet.action === 'SCORE_ADJUST') {
+        const { friendId, delta } = packet.payload;
+        const friend = state.friends.find(f => f.id === friendId);
+        if (friend) {
+          friend.score = Math.max(0, (friend.score || 0) + delta);
+          renderAll();
+        }
+      } else if (packet.action === 'ADD_CUSTOM_STIM') {
+        const { newStim } = packet.payload;
+        if (!state.customStims.some(s => s.id === newStim.id)) {
+          state.customStims.push(newStim);
+          renderAll();
+        }
+      } else if (packet.action === 'FULL_SYNC') {
+        if (packet.payload && Array.isArray(packet.payload.friends)) {
+          state.friends = packet.payload.friends;
+          state.customStims = packet.payload.customStims || [];
+          renderAll();
+        }
+      }
+    }
+
+    function saveToLocal() {
+      localStorage.setItem(`stim_state_${state.roomId}`, JSON.stringify({
+        friends: state.friends,
+        customStims: state.customStims,
+        feed: state.feed.slice(0, 30)
+      }));
+    }
+
+    /* ==========================================
+       ACTIONS
+       ========================================== */
+    function selectFriend(id) {
+      state.selectedFriendId = id;
+      renderFriendSelectors();
+      const friend = state.friends.find(f => f.id === id);
+      if (friend) {
+        document.getElementById('activeFriendLabel').innerText = `${friend.avatar} ${friend.name} selected`;
+      }
+    }
+
+    function logStim(stimName, soundType) {
+      const friend = state.friends.find(f => f.id === state.selectedFriendId);
+      if (!friend) return;
+
+      friend.score = (friend.score || 0) + 1;
+      friend.breakdown = friend.breakdown || {};
+      friend.breakdown[stimName] = (friend.breakdown[stimName] || 0) + 1;
+
+      playStimSound(soundType);
+      addFeedItem(`${friend.avatar} ${friend.name} logged "${stimName}"`);
+
+      if (friend.score > 0 && friend.score % 10 === 0 && window.confetti) {
+        window.confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+      }
+
+      renderAll();
+
+      broadcastAction('STIM_LOGGED', {
+        friendId: friend.id,
+        stimName: stimName,
+        soundType: soundType
+      });
+    }
+
+    function adjustScore(friendId, delta) {
+      const friend = state.friends.find(f => f.id === friendId);
+      if (!friend) return;
+      friend.score = Math.max(0, (friend.score || 0) + delta);
+      renderAll();
+      broadcastAction('SCORE_ADJUST', { friendId, delta });
+    }
+
+    function addFeedItem(text) {
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      state.feed.unshift({ text, time: timeStr });
+      if (state.feed.length > 40) state.feed.pop();
+      renderFeed();
+    }
+
+    function clearActivityFeed() {
+      state.feed = [];
+      renderFeed();
+      saveToLocal();
+    }
+
+    function openCustomStimModal() {
+      document.getElementById('customStimModal').classList.remove('hidden');
+      document.getElementById('newStimNameInput').focus();
+    }
+
+    function closeCustomStimModal() {
+      document.getElementById('customStimModal').classList.add('hidden');
+    }
+
+    function submitCustomStim() {
+      const name = document.getElementById('newStimNameInput').value.trim();
+      const emoji = document.getElementById('newStimEmojiInput').value.trim() || '⚡';
+      if (!name) return;
+
+      const newStim = {
+        id: 'custom_' + Date.now(),
+        name: name,
+        emoji: emoji,
+        sound: 'default',
+        color: 'from-violet-600 to-indigo-800'
+      };
+
+      state.customStims.push(newStim);
+      document.getElementById('newStimNameInput').value = '';
+      closeCustomStimModal();
+      renderStimButtons();
+      saveToLocal();
+
+      broadcastAction('ADD_CUSTOM_STIM', { newStim });
+    }
+
+    /* ==========================================
+       RENDERING
+       ========================================== */
+    function renderAll() {
+      renderFriendSelectors();
+      renderStimButtons();
+      renderPodium();
+      renderTable();
+      renderFeed();
+      saveToLocal();
+    }
+
+    function renderFriendSelectors() {
+      const container = document.getElementById('friendSelectorList');
+      container.innerHTML = state.friends.map(friend => {
+        const isSelected = friend.id === state.selectedFriendId;
+        const activeClass = isSelected
+          ? 'bg-purple-600 text-white border-purple-400 ring-2 ring-purple-500/50 shadow-lg shadow-purple-600/30'
+          : 'bg-slate-800 hover:bg-slate-700/80 text-slate-300 border-slate-700';
+        return `
+          <button onclick="selectFriend('${friend.id}')" class="px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 tap-pop ${activeClass}">
+            <span class="text-base">${friend.avatar}</span>
+            <span>${friend.name}</span>
+            <span class="font-mono text-[10px] px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-purple-900/80 text-purple-200' : 'bg-slate-900 text-slate-400'}">${friend.score}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function renderStimButtons() {
+      const grid = document.getElementById('stimButtonsGrid');
+
+      const presetHtml = PRESET_STIMS.map(stim => `
+        <button onclick="logStim('${stim.name.replace(/'/g, "\\'")}', '${stim.sound}')" class="relative group p-3.5 rounded-2xl bg-gradient-to-br ${stim.color} border border-white/10 hover:border-white/30 text-white text-left shadow-lg tap-pop transition overflow-hidden">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-2xl">${stim.emoji}</span>
+            <span class="text-[10px] font-mono font-black uppercase tracking-wider bg-black/30 px-1.5 py-0.5 rounded-md text-white/90">+1</span>
+          </div>
+          <div class="text-xs font-black tracking-tight leading-snug break-words">
+            ${stim.name}
+          </div>
+        </button>
+      `).join('');
+
+      const customHtml = state.customStims.map(stim => `
+        <button onclick="logStim('${stim.name.replace(/'/g, "\\'")}', 'default')" class="relative group p-3.5 rounded-2xl bg-gradient-to-br ${stim.color || 'from-indigo-600 to-purple-800'} border border-white/10 hover:border-white/30 text-white text-left shadow-lg tap-pop transition overflow-hidden">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-2xl">${stim.emoji}</span>
+            <span class="text-[10px] font-mono font-black uppercase tracking-wider bg-black/30 px-1.5 py-0.5 rounded-md text-white/90">+1</span>
+          </div>
+          <div class="text-xs font-black tracking-tight leading-snug break-words">
+            ${stim.name}
+          </div>
+        </button>
+      `).join('');
+
+      const undefinedStimButton = `
+        <button onclick="logStim('General Stim (Undefined)', 'default')" class="relative group p-3.5 rounded-2xl bg-gradient-to-br from-slate-700 via-slate-800 to-zinc-900 border-2 border-dashed border-slate-600 hover:border-slate-400 text-slate-200 text-left shadow-lg tap-pop transition">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-2xl">⚡</span>
+            <span class="text-[10px] font-mono font-black uppercase tracking-wider bg-purple-500/30 text-purple-300 border border-purple-500/40 px-1.5 py-0.5 rounded-md">+1</span>
+          </div>
+          <div class="text-xs font-black tracking-tight leading-snug">
+            General Stim
+            <span class="block text-[10px] font-normal text-slate-400 font-mono mt-0.5">(Unlisted)</span>
+          </div>
+        </button>
+      `;
+
+      grid.innerHTML = presetHtml + customHtml + undefinedStimButton;
+    }
+
+    function renderPodium() {
+      const sorted = [...state.friends].sort((a, b) => (b.score || 0) - (a.score || 0));
+      const first = sorted[0] || { name: '-', score: 0, avatar: '👤' };
+      const second = sorted[1] || { name: '-', score: 0, avatar: '👤' };
+      const third = sorted[2] || { name: '-', score: 0, avatar: '👤' };
+
+      const container = document.getElementById('podiumContainer');
+      container.innerHTML = `
+        <!-- 2ND PLACE -->
+        <div class="flex flex-col items-center flex-1 max-w-[110px]">
+          <div class="text-2xl mb-1 filter drop-shadow-md">${second.avatar}</div>
+          <span class="text-xs font-extrabold text-slate-200 truncate w-full text-center">${second.name}</span>
+          <span class="text-xs font-mono font-bold text-slate-400">${second.score}</span>
+          <div class="w-full h-24 bg-gradient-to-t from-slate-800 to-slate-700/80 border-t-2 border-slate-400 rounded-t-xl mt-2 flex flex-col items-center justify-center shadow-lg">
+            <span class="text-xl font-black text-slate-300">2</span>
+            <span class="text-[9px] uppercase font-bold tracking-wider text-slate-400 font-mono">SILVER</span>
+          </div>
+        </div>
+
+        <!-- 1ST PLACE -->
+        <div class="flex flex-col items-center flex-1 max-w-[130px] -mt-6">
+          <div class="text-amber-400 text-lg animate-bounce">👑</div>
+          <div class="text-3xl mb-1 filter drop-shadow-lg">${first.avatar}</div>
+          <span class="text-sm font-black text-amber-300 truncate w-full text-center">${first.name}</span>
+          <span class="text-sm font-mono font-black text-amber-400">${first.score}</span>
+          <div class="w-full h-32 bg-gradient-to-t from-amber-950/80 via-amber-800/60 to-amber-600/80 border-t-2 border-amber-300 rounded-t-2xl mt-2 flex flex-col items-center justify-center shadow-xl shadow-amber-500/10">
+            <span class="text-3xl font-black text-amber-200">1</span>
+            <span class="text-[10px] uppercase font-extrabold tracking-widest text-amber-300 font-mono">CHAMPION</span>
+          </div>
+        </div>
+
+        <!-- 3RD PLACE -->
+        <div class="flex flex-col items-center flex-1 max-w-[110px]">
+          <div class="text-2xl mb-1 filter drop-shadow-md">${third.avatar}</div>
+          <span class="text-xs font-extrabold text-slate-200 truncate w-full text-center">${third.name}</span>
+          <span class="text-xs font-mono font-bold text-amber-600">${third.score}</span>
+          <div class="w-full h-18 bg-gradient-to-t from-slate-900 to-amber-950/50 border-t-2 border-amber-700/80 rounded-t-xl mt-2 flex flex-col items-center justify-center shadow-lg" style="height: 4.5rem;">
+            <span class="text-xl font-black text-amber-700">3</span>
+            <span class="text-[9px] uppercase font-bold tracking-wider text-amber-700 font-mono">BRONZE</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTable() {
+      const sorted = [...state.friends].sort((a, b) => (b.score || 0) - (a.score || 0));
+      const total = sorted.reduce((sum, f) => sum + (f.score || 0), 0);
+      document.getElementById('totalStimsLogged').innerText = `${total} total stims`;
+
+      const tbody = document.getElementById('leaderboardTableBody');
+      tbody.innerHTML = sorted.map((friend, idx) => {
+        let rankBadge = `<span class="font-mono text-xs font-bold text-slate-500">#${idx + 1}</span>`;
+        if (idx === 0) rankBadge = `<span class="text-amber-400 font-bold">🥇 1st</span>`;
+        if (idx === 1) rankBadge = `<span class="text-slate-300 font-bold">🥈 2nd</span>`;
+        if (idx === 2) rankBadge = `<span class="text-amber-600 font-bold">🥉 3rd</span>`;
+
+        let topStim = 'None yet';
+        if (friend.breakdown && Object.keys(friend.breakdown).length > 0) {
+          const topKey = Object.keys(friend.breakdown).reduce((a, b) => friend.breakdown[a] > friend.breakdown[b] ? a : b);
+          topStim = `${topKey} (${friend.breakdown[topKey]})`;
+        }
+
+        return `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="py-3 px-2">${rankBadge}</td>
+            <td class="py-3 px-3">
+              <div class="flex items-center gap-2">
+                <span class="text-lg">${friend.avatar}</span>
+                <span class="font-bold text-sm text-slate-200">${friend.name}</span>
+              </div>
+            </td>
+            <td class="py-3 px-3 text-xs text-slate-400 truncate max-w-[140px] font-mono">${topStim}</td>
+            <td class="py-3 px-3 text-right font-mono font-black text-sm text-purple-300">${friend.score || 0}</td>
+            <td class="py-3 px-2 text-right">
+              <div class="inline-flex items-center gap-1">
+                <button onclick="adjustScore('${friend.id}', -1)" class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center tap-pop transition">-</button>
+                <button onclick="adjustScore('${friend.id}', 1)" class="w-7 h-7 rounded-lg bg-purple-600/80 hover:bg-purple-600 text-white font-bold text-xs flex items-center justify-center tap-pop transition">+</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderFeed() {
+      const container = document.getElementById('activityFeed');
+      if (state.feed.length === 0) {
+        container.innerHTML = `<p class="text-slate-600 italic py-2">No stims logged yet today. Tap a button to get started!</p>`;
+        return;
+      }
+
+      container.innerHTML = state.feed.map(item => `
+        <div class="flex items-center justify-between py-1 border-b border-slate-800/40 last:border-0">
+          <span class="text-slate-300">${item.text}</span>
+          <span class="text-[10px] text-slate-500 font-mono">${item.time}</span>
+        </div>
+      `).join('');
+    }
+
+    /* ==========================================
+       SETTINGS & MODALS
+       ========================================== */
+    function copyShareLink() {
+      const url = new URL(window.location.href);
+      url.searchParams.set('room', state.roomId);
+      navigator.clipboard.writeText(url.toString()).then(() => {
+        alert(`Link copied to clipboard!\n\nText this link to the squad. Everyone will sync in room "${state.roomId}" automatically.`);
+      }).catch(() => {
+        prompt("Copy this squad URL to share:", url.toString());
+      });
+    }
+
+    function openSettingsModal() {
+      document.getElementById('settingsModal').classList.remove('hidden');
+      document.getElementById('exportCodeArea').value = btoa(JSON.stringify({
+        friends: state.friends,
+        customStims: state.customStims
+      }));
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settingsModal').classList.add('hidden');
+    }
+
+    function saveRoomName() {
+      const newRoom = document.getElementById('roomNameInput').value.trim();
+      if (!newRoom) return;
+      state.roomId = newRoom;
+      document.getElementById('roomTag').innerText = state.roomId;
+      closeSettingsModal();
+      connectLiveEventBus();
+      saveToLocal();
+      alert(`Connected to room "${newRoom}"!`);
+    }
+
+    function copySnapshotCode() {
+      const code = document.getElementById('exportCodeArea').value;
+      navigator.clipboard.writeText(code).then(() => {
+        alert("Snapshot backup code copied!");
+      });
+    }
+
+    function importSnapshotPrompt() {
+      const code = prompt("Paste the snapshot backup code here:");
+      if (!code) return;
+      try {
+        const decoded = JSON.parse(atob(code));
+        if (decoded && Array.isArray(decoded.friends)) {
+          state.friends = decoded.friends;
+          state.customStims = decoded.customStims || [];
+          renderAll();
+          broadcastAction('FULL_SYNC', {
+            friends: state.friends,
+            customStims: state.customStims
+          });
+          closeSettingsModal();
+          alert("Leaderboard scores and custom stims restored successfully!");
+        }
+      } catch (err) {
+        alert("Invalid snapshot backup code.");
+      }
+    }
+
+    function resetAllScoresConfirm() {
+      if (confirm("Are you sure you want to reset all stim scores to 0 for everyone?")) {
+        state.friends.forEach(f => {
+          f.score = 0;
+          f.breakdown = {};
+        });
+        state.feed = [];
+        renderAll();
+        broadcastAction('FULL_SYNC', {
+          friends: state.friends,
+          customStims: state.customStims
+        });
+        closeSettingsModal();
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
